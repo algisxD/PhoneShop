@@ -1,0 +1,86 @@
+﻿<div class="top-row pl-4 navbar navbar-dark">
+    <a class="navbar-brand" href="">PSAPI</a>
+    <button class="navbar-toggler" @onclick="ToggleNavMenu">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+</div>
+
+@using PSAPI.Shared
+@using Microsoft.AspNetCore.Identity;
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@if (loggedIn)
+{
+    if (isAdmin)
+    {
+        <AdministratoriausMain></AdministratoriausMain>
+    }
+    else
+    {
+        <KlientoMain></KlientoMain>
+    }
+}
+@*<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+        <ul class="nav flex-column">
+            <li class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="oi oi-home" aria-hidden="true"></span> Home
+                </NavLink>
+            </li>
+            <li class="nav-item px-3">
+                <NavLink class="nav-link" href="detales">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Detalės
+                </NavLink>
+            </li>
+            <li class="nav-item px-3">
+                <NavLink class="nav-link" href="planai">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Planai
+                </NavLink>
+            </li>
+            <li class="nav-item px-3">
+                <NavLink class="nav-link" href="telefonailist">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Telefonai
+                </NavLink>
+            </li>
+            <li class="nav-item px-3">
+                <NavLink class="nav-link" href="telefonai">
+                    <span class="oi oi-list-rich" aria-hidden="true"></span> Telefono pirkimas
+                </NavLink>
+            </li>
+            <li class="nav-item px-3">
+                <NavLink class="nav-link" href="telefonasreturn">
+                    <span class="oi oi-phone" aria-hidden="true"></span> Telefono gražinimas
+                </NavLink>
+            </li>
+            <li class="nav-item px-3">
+            <NavLink class="nav-link" href="saskaitos">
+                <span class="oi oi-phone" aria-hidden="true"></span> Matyti istorija
+            </NavLink>
+            </li>
+        </ul>
+    </div>*@
+
+@code {
+    private bool collapseNavMenu = true;
+
+    bool isAdmin, loggedIn;
+
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        loggedIn = authState.User.Identity.IsAuthenticated;
+        if (loggedIn)
+            isAdmin = authState.User.Identity.Name.Split('@')[0] == "Admin";
+
+        //useris = await UserManager.GetUserAsync(authState.User);
+        //loaded = true;
+    }
+}

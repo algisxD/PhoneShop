@@ -1,0 +1,83 @@
+﻿@page "/detales"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+
+<h1>Detalės</h1>
+<div class="@(detales is null ? "spinner" : null)"></div>
+@if (detales is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <NavLink href="detale/add">
+         <button class="btn btn-success">Pridėti naują detalę</button>
+    </NavLink>
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Pavadinimas</th>
+                <th>Savikaina</th>
+                <th>Pagaminimo Data</th>
+                <th>Kilmės šalis</th>
+                <th>Serijos numeris</th>
+                <th>Telefono modelis</th>
+                <th>Redaguoti</th>
+                <th>Šalinti</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (DetaleViewModel detale in detales)
+            {
+                int ii = detale.Id;
+                <tr>
+                    <td>@detale.Id</td>
+                    <td>@detale.Pavadinimas</td>
+                    <td>@detale.Savikaina</td>
+                    <td>@detale.PagaminimoData</td>
+                    <td>@detale.KilmesSalis</td>
+                    <td>@detale.SerijosNumeris</td>
+                    @*<td>@telefonoModeliiai.FirstOrDefault(e => e.Id == detale.TelefonoModelisId).Pavadinimas</td>*@
+                    <td>@detale.TelefonoModelioName</td>
+                    <td>
+                        <NavLink href="@($"detale/edit/{detale.Id}")">
+                            <i class="fas fa-edit fa-2x btn-live"></i>
+                        </NavLink>
+                    </td>
+                    <td>
+                        <div @onclick="() => RemoveDetale(ii)">
+                            <i class="fas fa-trash fa-2x btn-live" aria-hidden="true"></i>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    IEnumerable<DetaleViewModel> detales;
+
+    IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        detales = await commonService.GetDetalesAsync(navManager.BaseUri);
+
+        telefonoModeliiai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+    }
+
+    protected async Task RemoveDetale(int id)
+    {
+        detales = detales.Where(e => e.Id != id);
+        await commonService.DeleteDetaleAsync(navManager.BaseUri, id);
+        StateHasChanged();
+    }
+}

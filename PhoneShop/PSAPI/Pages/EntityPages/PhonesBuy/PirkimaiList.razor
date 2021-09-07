@@ -1,0 +1,81 @@
+﻿@page "/telefonai"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Telefonai</h1>
+<div class="@(telefonai is null ? "spinner" : null)"></div>
+@if (telefonai is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @*<NavLink href="telefons/add">
+         <button class="btn btn-success">Pridėti naują detalę</button>
+    </NavLink>*@
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Pavadinimas</th>
+                <th>Gamintojas</th>
+                <th>Išleidimo data</th>
+                <th>Kaina</th>
+                <th>Daugiau</th>
+                @*<th>Serijos numeris</th>
+        <th>Telefono modelis</th>
+        <th>Redaguoti</th>
+        <th>Šalinti</th>*@
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (TelefonoModelisViewModel telefons in telefonai)
+            {
+                int ii = telefons.Id;
+                <tr>
+                    <td>@telefons.Pavadinimas</td>
+                    <td>@telefons.Gamintojas</td>
+                    <td>@(((DateTime)telefons.IsleidimoData).ToString("yyyy-MM-dd"))</td>
+                    <td>@telefons.Kaina</td>
+                    <td>
+                        @*<NavLink href="@($"telefonai/{telefons.Id}")">
+            <i class="fas fa-edit fa-2x btn-live"></i>
+        </NavLink>*@
+                        <div @onclick="() => ChoosePhone(ii)">
+                            <i class="fas fa-edit fa-2x btn-live"></i>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    IEnumerable<TelefonoModelisViewModel> telefonai;
+
+    //IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+
+        //telefonoModeliiai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+    }
+
+    protected void ChoosePhone(int id)
+    {
+        navManager.NavigateTo($"/telefonai/{id}");
+    }
+
+    //protected async Task Removetelefons(int id)
+    //{
+    //    telefonss = telefonss.Where(e => e.Id != id);
+    //    await commonService.DeletetelefonsAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+}

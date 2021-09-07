@@ -1,0 +1,198 @@
+﻿@*@page "/payBank/{TelefonoId:int}"
+@page "/payBank/{TelefonoId:int}/{PlanoId:int}"
+@page "/payBank/{TelefonoId:int}/{PlanoId:int}/{ElParasoId:int}"
+
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using PSAPI.Data.Entities;
+@using System.Net;
+@using System.IO;
+@using Microsoft.AspNetCore.Identity;
+@using PSAPI.Pages.ActionPages;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SessionService session
+
+@if (loggedIn)
+{
+    <img src="/fotkes/BANKAS.png" />
+    <div class="@(loading ? "spinner" : null)"></div>
+
+    <div class="about-item-component">
+        <div>Pirkinio kaina:</div>
+        <div>@(telefonas.Kaina + (planas is null ? 0 : (ElParasoId == 0 ? planas.MenMokestis : planas.MenMokestis + 100))) €</div>
+        <div>Sąskaitos numeris</div>
+        <input style="max-width:150px" type="number" @bind-value="saskaitosNumeris" class="form-control validation-dalykas @(validation[0] ? "" : "validation-error")" />
+        <div>Galiojimas</div>
+        <div style="width:100%">
+            <RadzenDropDown TValue="int" @bind-Value="validFrom" Style="max-width:50px" Data="Enumerable.Range(1, 12)"></RadzenDropDown>
+            <RadzenDropDown TValue="int" @bind-Value="validTo" Style="max-width:50px" Data="Enumerable.Range(Convert.ToInt32(DateTime.Now.Year.ToString().Substring(2, 2)) + 1, 4)"></RadzenDropDown>
+        </div>
+        <div>Vardas Pavarde</div>
+        <input style="max-width:150px" @bind-value="fullName" class="form-control validation-dalykas @(validation[2] ? "" : "validation-error")" />
+        <div>CVV</div>
+        <input style="max-width:150px" @bind-value="cvv" type="number" class="form-control validation-dalykas @(validation[3] ? "" : "validation-error")" />
+    </div>
+
+    @if (submitted)
+    {
+        <BankoHandling Paid="@paid" Valid="@validated" Validated="ConfirmPayment" PaymentConfirmed="() => Pay(true)"></BankoHandling>
+    }
+    <br />
+    @if (!validated)
+    {
+        <button @onclick="() => ConfirmPayment()" style="margin-top:20px" class="btn btn-success">Apmokėti</button>
+    }
+    else
+    {
+        <button @onclick="Pay" style="margin-top:20px" class="btn btn-success">Patvirtinti mokėjimą</button>
+    }
+}
+else
+{
+    <h1>Jūs neprisijungę...</h1>
+}
+
+
+
+
+@code {
+    [Parameter]
+    public int TelefonoId { get; set; }
+
+    [Parameter]
+    public int PlanoId { get; set; }
+    PlanasViewModel planas;
+
+    [Parameter]
+    public int ElParasoId { get; set; }
+
+
+    TelefonoModelisViewModel telefonas;
+
+    string saskaitosNumeris = "";
+    int validFrom = DateTime.Now.Month;
+    int validTo = Convert.ToInt32(DateTime.Now.Year.ToString().Substring(2, 2)) + 1;
+    string fullName = "";
+    string cvv = "";
+
+    bool[] validation = new bool[4] { true, true, true, true };
+
+    bool validated, loading, loggedIn;
+
+    bool submitted;
+    bool paid;
+
+    string userId;
+
+    //string imageUrl = System.Web.HttpContext.Current.Server.MapPath("~/fotkes" + filePath);
+
+    //IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, TelefonoId);
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        loggedIn = authState.User.Identity.IsAuthenticated;
+
+        userId = (await UserManager.GetUserAsync(authState.User)).Id;
+
+        if (PlanoId != 0)
+            planas = await commonService.GetPlanasAsync(navManager.BaseUri, PlanoId);
+    }
+
+    protected bool Validate()
+    {
+        validation[0] = saskaitosNumeris.Length == 16 && saskaitosNumeris.All(e => char.IsDigit(e));
+        validation[1] = true;//validTo == Convert.ToInt32(DateTime.Now.Year.ToString().Substring(2, 2));
+
+        validation[2] = false;
+        for (int i = 1; i < fullName.Length - 1; i++)
+        {
+            if (fullName[i] == ' ' && fullName[i - 1] != ' ' && fullName[i + 1] != ' ')
+            {
+                validation[2] = true;
+                break;
+            }
+        }
+        if (validation[2])
+            validation[2] = fullName.All(e => !char.IsDigit(e));
+        validation[3] = cvv.ToString().Length == 3 && cvv.All(e => char.IsDigit(e));
+
+        return validation.All(e => e);
+    }
+
+    protected async Task ConfirmPayment(bool confirmed = false)
+    {
+        if (confirmed)
+        {
+            loading = true;
+            await Task.Delay(2000);
+            loading = false;
+            validated = true;
+        }
+        if (Validate())
+        {
+            submitted = true;
+            //if (await commonService.BankValidation())
+            //{
+
+            //}
+        }
+        else
+        {
+            StateHasChanged();
+            await Task.Delay(1000);
+            for (int i = 0; i < 4; i++)
+                validation[i] = true;
+        }
+    }
+
+    protected async Task Pay(bool fromBank = false)
+    {
+        if (fromBank)
+        {
+            Uzsakymas uzs = new Uzsakymas()
+            {
+                ApmokejimoBusena = SaskaitosBusena.Užbaigta,
+                Data = DateTime.Now,
+                KlientoId = userId,
+                TelefonoModelisId = telefonas.Id,
+                UzsakymoTipas = Tipas.Pirkimas
+            };
+
+            var uzsakymoid = await commonService.InsertUzsakymasAsync(navManager.BaseUri, uzs);
+
+            Saskaita saskaita = new Saskaita()
+            {
+                ApmokejimoData = DateTime.Now,
+                ApmokejimoTerminas = DateTime.Now.AddDays(10),
+                Busena = Busena.Apmoketa,
+                Suma = telefonas.Kaina + (planas is null ? 0 : (ElParasoId == 0 ? planas.MenMokestis : planas.MenMokestis + 100)),
+                UzsakymasId = uzsakymoid
+            };
+
+            await commonService.InsertSaskaitaAsync(navManager.BaseUri, saskaita);
+
+            navManager.NavigateTo("/");
+
+            session["prev_message"] = "Sąskaita sėkmingai apmokėta.";
+        }
+        else
+        {
+            paid = true;
+        }
+    }
+
+    //protected async Task Removetelefons(int id)
+    //{
+    //    telefonss = telefonss.Where(e => e.Id != id);
+    //    await commonService.DeletetelefonsAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+}*@

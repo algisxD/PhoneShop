@@ -1,0 +1,82 @@
+﻿@page "/saskaitos"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using Microsoft.AspNetCore.Identity;
+
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject CommonService commonService
+@inject NavigationManager navManager
+@inject SessionService session
+
+
+<h1>Jūsų pirkimo istorija</h1>
+<div class="@(saskaitos is null ? "spinner" : null)"></div>
+@if (saskaitos is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Sąskaitos identifikatorius</th>
+                <th>Sąskaitos suma</th>
+                <th>Apmokėjimo data</th>
+                <th>Apmokėjimo terminas</th>
+                <th>Sąskaitos būsena</th>
+                <th>Telefono pavadinimas</th>
+                <th>Telefono kaina</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (SaskaitaViewModel saskaita in saskaitos)
+            {
+                int id = saskaita.Id;
+                <tr style="cursor:pointer" @onclick="() => OpenOrder(id)">
+                    <td>@saskaita.Id</td>
+                    @if (rodomaSaskaita == saskaita.Id)
+                    {
+                        <td>@saskaita.Suma</td>
+                        <td>@saskaita.ApmokejimoData</td>
+                        <td>@saskaita.ApmokejimoTerminas</td>
+                        <td>@saskaita.Busena</td>
+                        <td>@saskaita.TelefonoPavadinimas</td>
+                        <td>@saskaita.TelefonoKaina</td>
+                    }
+                </tr>
+            }
+            @if (!saskaitos.Any())
+            {
+                <tr><td colspan="7" style="text-align:center">Jūsų pirkimų istorija tuščia.</td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    IEnumerable<SaskaitaViewModel> saskaitos;
+
+    int rodomaSaskaita;
+
+    string UserId, userName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        //saskaitos = await commonService.GetSaskaitaAsync(navManager.BaseUri);
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        bool loggedIn = authState.User.Identity.IsAuthenticated;
+        if (loggedIn)
+        {
+            userName = (await UserManager.GetUserAsync(authState.User)).UserName;
+            UserId = (await UserManager.GetUserAsync(authState.User)).Id;
+            saskaitos = (await commonService.GetSaskaitosAsync(navManager.BaseUri)).Where(e => e.KlientoId == UserId);
+        }
+    }
+
+    protected void OpenOrder(int id)
+    {
+        rodomaSaskaita = id;
+    }
+}

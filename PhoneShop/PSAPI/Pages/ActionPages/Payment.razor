@@ -1,0 +1,62 @@
+﻿@page "/payment/{TelefonoId:int}/{PlanoId:int}/{ElParasoId:int}"
+@page "/payment/{TelefonoId:int}/{PlanoId:int}"
+@page "/payment/{TelefonoId:int}"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using System.Net;
+@using System.IO;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>DUOK PINIGA</h1>
+<div class="@(telefonas is null ? "spinner" : null)"></div>
+
+@*<div class="about-item-component">
+    <div>Sąskaitos numeris</div>
+    <input class="text-body" />
+    <div>Gamintojas</div>
+    <div>@telefonas.Gamintojas</div>
+    <div>Išleidimo Data</div>
+    <div>@telefonas.IsleidimoData</div>
+    <div>Kaina</div>
+    <div>@telefonas.Kaina</div>
+</div>*@
+
+<NavLink href="@($"payment/{TelefonoId}{(PlanoId != 0 ? $"/{(ElParasoId != 0 ? $"{PlanoId}/{ElParasoId}" : $"{PlanoId}")}" : "")}")">
+    <button class="btn btn-success">Patvirtinti mokėjimą</button>
+</NavLink>
+
+@code {
+    [Parameter]
+    public int TelefonoId { get; set; }
+
+    [Parameter]
+    public int PlanoId { get; set; }
+
+    [Parameter]
+    public int ElParasoId { get; set; }
+
+    TelefonoModelisViewModel telefonas;
+
+
+
+    //string imageUrl = System.Web.HttpContext.Current.Server.MapPath("~/fotkes" + filePath);
+
+    //IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, TelefonoId);
+
+    }
+
+    //protected async Task Removetelefons(int id)
+    //{
+    //    telefonss = telefonss.Where(e => e.Id != id);
+    //    await commonService.DeletetelefonsAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+}

@@ -1,0 +1,51 @@
+﻿@page "/BankPayment/{TelefonoId:int}/{PlanoId:int}/{ElParasoId:int}"
+@page "/BankPayment/{TelefonoId:int}/{PlanoId:int}"
+@page "/BankPayment/{TelefonoId:int}"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using System.Net;
+@using System.IO;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>As bankas</h1>
+<div class="@(telefonas is null ? "spinner" : null)"></div>
+
+<NavLink href="@($"BankPayment/{TelefonoId}{(PlanoId != 0 ? $"/{(ElParasoId != 0 ? $"{PlanoId}/{ElParasoId}" : $"{PlanoId}")}" : "")}")">
+    <button class="btn btn-success">Apmokėti</button>
+</NavLink>
+
+@code {
+    [Parameter]
+    public int TelefonoId { get; set; }
+
+    [Parameter]
+    public int PlanoId { get; set; }
+
+    [Parameter]
+    public int ElParasoId { get; set; }
+
+    TelefonoModelisViewModel telefonas;
+
+
+
+    //string imageUrl = System.Web.HttpContext.Current.Server.MapPath("~/fotkes" + filePath);
+
+    //IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, TelefonoId);
+
+    }
+
+    //protected async Task Removetelefons(int id)
+    //{
+    //    telefonss = telefonss.Where(e => e.Id != id);
+    //    await commonService.DeletetelefonsAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+}

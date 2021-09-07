@@ -1,0 +1,115 @@
+﻿@page "/detale/add"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using PSAPI.Data.Entities
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Pridėti naują detalę</h1>
+
+<div class="@(newDetale is null ? "spinner" : null)"></div>
+@if (newDetale is null || allTelefonoModeliai is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="editinimo-dalykas">
+        <div>
+            <h3>Pavadinimas</h3>
+            <input type="text" class="form-control" spellcheck="false" @bind-value="newDetale.Pavadinimas" />
+        </div>
+        <div>
+            <h3>Savikaina</h3>
+            <input type="number" step="0.01" class="form-control" spellcheck="false" @bind-value="newDetale.Savikaina" />
+        </div>
+        <div>
+            <h3>Pagaminimo Data</h3>
+            <Radzen.Blazor.RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd"
+                                            Placeholder="Pagaminimo Data"
+                                            ShowTime="false"
+                                            @bind-Value="newDetale.PagaminimoData"></Radzen.Blazor.RadzenDatePicker>
+        </div>
+        <div>
+            <h3>Kilmės šalis</h3>
+            <input type="text" class="form-control" spellcheck="false" @bind-value="newDetale.KilmesSalis" />
+        </div>
+        <div>
+            <h3>Serijos numeris</h3>
+            <input type="text" class="form-control" spellcheck="false" @bind-value="newDetale.SerijosNumeris" />
+        </div>
+        <div>
+            <h3>Telefono modelio ID</h3>
+            <PSAPI.Pages.Components.UniversalDropDown Data="allTelefonoModeliai"
+                                                      @bind-value="newDetale.TelefonoModelisId" TValue="int"
+                                                      ColumnNames="@(new string[] { "Pavadinimas", "Gamintojas", "IsleidimoData" })">
+            </PSAPI.Pages.Components.UniversalDropDown>
+        </div>
+        <div>
+            <button @onclick="NewDetale" class="btn btn-info">Pridėti naują detalę</button>
+        </div>
+    </div>
+
+    if (showErrorMessage)
+    {
+        <div class="deleteModal">
+            <div class="modalheader">Klaida</div>
+            <div class="modalcontent">Ne ne visi įvedimo laukai užpildyti...</div>
+            <div class="modalfooter">
+                <button @onclick="() => { showErrorMessage = false; }" class="btn btn-info">Gerai</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    DetaleViewModel newDetale;
+
+    IEnumerable<TelefonoModelisViewModel> allTelefonoModeliai;
+
+    bool showErrorMessage;   
+
+    protected override async Task OnInitializedAsync()
+    {
+        newDetale = new DetaleViewModel();
+
+        allTelefonoModeliai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+
+
+    }
+
+    protected bool Validate()
+    {
+        if (string.IsNullOrEmpty(newDetale.Pavadinimas) || string.IsNullOrEmpty(newDetale.KilmesSalis) || string.IsNullOrEmpty(newDetale.SerijosNumeris)
+            || newDetale.PagaminimoData == DateTime.MinValue || newDetale.TelefonoModelisId == 0)
+            return false;
+
+        return true;
+    }
+
+    protected async Task NewDetale()
+    {
+        if (Validate())
+        {
+            await commonService.InsertDetaleAsync(navManager.BaseUri, FromViewModel());
+            navManager.NavigateTo("/detales");
+        }
+        else
+            showErrorMessage = true;
+    }
+
+    protected Detale FromViewModel()
+    {
+        return new Detale()
+        {
+            Id = newDetale.Id,
+            KilmesSalis = newDetale.KilmesSalis,
+            PagaminimoData = newDetale.PagaminimoData,
+            Pavadinimas = newDetale.Pavadinimas,
+            Savikaina = newDetale.Savikaina,
+            SerijosNumeris = newDetale.SerijosNumeris,
+            TelefonoModelisId = newDetale.TelefonoModelisId
+        };
+    }
+}

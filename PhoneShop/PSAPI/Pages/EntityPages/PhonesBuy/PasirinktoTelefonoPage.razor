@@ -1,0 +1,94 @@
+﻿@page "/telefonai/{Id:int}"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using System.Net;
+@using System.IO;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Telefonai</h1>
+<div class="@(telefonas is null ? "spinner" : null)"></div>
+@if (telefonas is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <h2>@telefonas.Pavadinimas</h2>
+    <div class="about-item">
+        <img src="@fotkeUrl" style="width:420px; height:420px" />
+        <div class="about-item-component" style="margin: 20px 0">
+            <div>Pavadinimas</div>
+            <div>@telefonas.Pavadinimas</div>
+            <div>Gamintojas</div>
+            <div>@telefonas.Gamintojas</div>
+            <div>Išleidimo Data</div>
+            <div>@(((DateTime)telefonas.IsleidimoData).ToString("yyyy-MM-dd"))</div>
+            <div>Kaina</div>
+            <div>@telefonas.Kaina</div>
+        </div>
+    </div>
+    <button @onclick="pasirinktiApmoketi" class="btn btn-success">Apmokėti sąskaitą</button>
+    <button @onclick="pasirinktiPlana" class="btn btn-danger">Pirkti planą</button>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    string fotkeUrl;// = "Not_found";
+
+    TelefonoModelisViewModel telefonas;
+
+
+
+    //string imageUrl = System.Web.HttpContext.Current.Server.MapPath("~/fotkes" + filePath);
+
+    //IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, Id);
+        string fotkePath = Directory.GetCurrentDirectory() + $"\\wwwroot\\fotkes\\{(telefonas.Pavadinimas.Replace(' ', '_').ToLower())}.jpg";
+        fotkeUrl = File.Exists(fotkePath) ? $"/fotkes/{(telefonas.Pavadinimas.Replace(' ', '_').ToLower())}.jpg" : "/fotkes/Not_found.png"; ;
+
+        //var url = Directory.GetCurrentDirectory();
+        //var url2 = url + "\\wwwroot\\fotkes\\iphone_1.jpg";
+        //var exists = File.Exists(url2);
+        //HttpWebRequest request = (HttpWebRequest)HttpWebRequest.Create("/fotkes/ipone_1.jpg");
+        ////request.Method = "HEAD";
+
+        ////bool exists;
+        ////try
+        ////{
+        ////    request.GetResponse();
+        ////    exists = true;
+        ////}
+        ////catch
+        ////{
+        ////    exists = false;
+        ////}
+        //int a = 12;
+        ////telefonoModeliiai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+    }
+
+    protected void pasirinktiPlana()
+    {
+        navManager.NavigateTo($"/buyPlan/{(telefonas.Id)}");
+    }
+
+    protected void pasirinktiApmoketi()
+    {
+        navManager.NavigateTo($"/pay/{(telefonas.Id)}");
+    }
+
+    //protected async Task Removetelefons(int id)
+    //{
+    //    telefonss = telefonss.Where(e => e.Id != id);
+    //    await commonService.DeletetelefonsAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+}

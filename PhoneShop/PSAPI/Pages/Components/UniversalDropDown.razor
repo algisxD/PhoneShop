@@ -1,0 +1,963 @@
+﻿@typeparam TValue
+
+@using System.Reflection;
+@using System.Threading;
+@using System.Runtime.CompilerServices;
+@using PSAPI.Data.Services
+@inject WindowStateService windowState
+@inject IJSRuntime JSRuntime
+
+@if (loaded)
+{
+    <div id="u_DropDown_@componentId" style="@Style; position:relative; display: inline-block;" @onmousemove="() => { arrowKeySelectEnabled = false; unHighlightedId = -1; }">
+        <input id="@($"u_DropDown_{componentId}_input")" readonly="readonly" onfocus="this.select();" placeholder="@PlaceHolder" @onkeyup="ClearSelected" @bind-value="input"
+               class="textbox dropdown_table_input" @onkeydown="KeyDown" @onfocusout="FocusOut"
+               @onclick="() => { hideInputOutline = false; }" @onfocusin="Clicked" autocomplete="off"
+               style="@($"{StyleInput}{(focusedId == $"u_DropDown_{componentId}_input" && hideInputOutline ? "; outline: none;" : "")}")" />
+
+        @if (show && shownData != null/* && selectedItem == null*/)
+        {
+            //bool firstColumn = true;
+            int i = 0;
+
+            if (add)
+            {
+                @AddComponent;
+            }
+
+            <div class="dropdown_table opacity-transition opacity-transition-@(isTableTransparent ? "hidden" : "shown")"
+                 style="@(string.IsNullOrEmpty(StyleDropdown) ? "" : $"{StyleDropdown}; ")z-index:@(zIndex + 1); left:@($"-{leftOffset}px;")"
+                 id="@($"u_DropDown_{componentId}_dropdown_table")" @onmousewheel="(args) => ScrolledWheel(args)" @onscroll="() => Scrolled()">
+                <div @onclick="ClickedOnTableHeader">
+
+                    @foreach (var prop in properties)
+                    {
+                        int columnSorting = comparer.SortingForColumn(prop.Name);
+                        <div @onclick="() => SortByColumn(prop.Name)">
+                            @AddSpaces(prop.Name)
+                            <i class="fas fa-caret-up icon-facing-@(columnSorting < 0 ? "down" : "up") opacity-transition-fast opacity-transition-@(columnSorting == 0 ? "hidden" : "shown")"></i>
+                        </div>
+                    }
+                </div>
+
+                <div></div>
+
+                @*<div class="@(showFilters ? "filters_shown" : "filters_hidden")">
+                    @foreach (var filter in filters)
+                    {
+                        <div style="max-width:@(ColumnWidth)px;
+                                    @($"{(FlexibleColumnWidth ? "" : $"min-width:{@ColumnWidth}px;")}")
+                                    @(elevatedzIndexForFilter == filter.FieldName ? $"z-index: {zIndex + 1};" : "")"
+                             class="@(filter.Type == InputType.Text ? "dropdown_table_filter_text_column" : "")">
+                            @switch (filter.Type)
+                            {
+                                case InputType.Text:
+                                    <input type="text" placeholder="Filter" @onfocusin="(() => FilterFieldOnClick(filter, true, true))"
+                                           @onclick="() => { hideInputOutline = false; }"
+                                           style="@(focusedId == $"u_DropDown_{componentId}_filter_{filter.FieldName}" && hideInputOutline ? "outline: none;" : "")"
+                                           @onfocusout="FocusOut" @bind-value:event="oninput" @bind-value="filter.Text"
+                                           @onkeyup="(async (args) => { await FilterData(args, true); ShowFilter(args); })" @onkeydown="KeyDown"
+                                           id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}")" />
+                                    break;
+
+
+                                case InputType.DateTime:
+                                case InputType.Date:
+                                    <div>
+                                        <div tabindex="0" id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_from")"
+                                             @onfocusout="FocusOut" class="@($"{(filter.Date[0] != null ? "dropdown_table_filter-set" : "")}")">
+                                            @if (filter.Date[0].HasValue)
+                                            {
+                                                <i class="fas fa-times" aria-hidden="true" @onclick="(() => DateTimeClear(filter, true))"></i>
+                                            }
+                                            <RadzenDatePicker @onfocusin="(() => { clickedOn = true; elevatedzIndexForFilter = filter.FieldName; })" HourFormat="24"
+                                                              TValue="DateTime" Placeholder="@($"Filter From")" DateFormat="@(filter.Type == InputType.DateTime ? "yyyy-MM-dd h:mm" : "yyyy-MM-dd")"
+                                                              Change="(async (args) => { filter.Date[0] = args.Value; await FilterData(); })" ShowTime="@(filter.Type == InputType.DateTime)"
+                                                              Value="filter.Date[0]"></RadzenDatePicker>
+                                        </div>
+
+                                        <div tabindex="0" id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_to")"
+                                             @onfocusout="FocusOut" class="@($"{(filter.Date[1] != null ? "dropdown_table_filter-set" : "")}")">
+                                            @if (filter.Date[1].HasValue)
+                                            {
+                                                <i class="fas fa-times" aria-hidden="true" @onclick="(() => DateTimeClear(filter, false))"></i>
+                                            }
+                                            <RadzenDatePicker @onfocusin="(async () => { clickedOn = true; elevatedzIndexForFilter = filter.FieldName; })" HourFormat="24"
+                                                              TValue="DateTime" Placeholder="@($"Filter To")" DateFormat="@(filter.Type == InputType.DateTime ? "yyyy-MM-dd h:mm" : "yyyy-MM-dd")"
+                                                              Change="(async (args) => { filter.Date[1] = args.Value; await FilterData(); })" ShowTime="@(filter.Type == InputType.DateTime)"
+                                                              Value="filter.Date[1]"></RadzenDatePicker>
+                                        </div>
+                                    </div>
+                                    break;
+
+                                case InputType.Decimal:
+                                    <input type="number" placeholder="Filter From" step="0.01" @onfocusin="() => FilterFieldOnClick(filter, false, true)"
+                                           @onclick="() => { hideInputOutline = false; }"
+                                           style="@(focusedId == $"u_DropDown_{componentId}_filter_{filter.FieldName}_from" && hideInputOutline ? "outline: none;" : "")"
+                                           @onfocusout="FocusOut" @bind-value:event="oninput" @bind-value="filter.Price[0]"
+                                           @onkeyup="(async (args) => { await FilterData(args, false); showFilters = true; })"
+                                           id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_from")" />
+
+                                    <input type="number" placeholder="Filter To" step="0.01" @onfocusin="() => FilterFieldOnClick(filter, false, false)"
+                                           @onclick="() => { hideInputOutline = false; }"
+                                           style="@(focusedId == $"u_DropDown_{componentId}_filter_{filter.FieldName}_to" && hideInputOutline ? "outline: none;" : "")"
+                                           @onfocusout="FocusOut" @bind-value:event="oninput" @bind-value="filter.Price[1]"
+                                           @onkeyup="(async (args) => { await FilterData(args, false); showFilters = true; })"
+                                           id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_to")" />
+                                    break;
+
+                                case InputType.Number:
+                                    <input type="number" placeholder="Filter From" @onfocusin="() => FilterFieldOnClick(filter, false, true)"
+                                           @onclick="() => { hideInputOutline = false; }"
+                                           style="@(focusedId == $"u_DropDown_{componentId}_filter_{filter.FieldName}_from" && hideInputOutline ? "outline: none;" : "")"
+                                           @onfocusout="FocusOut" @bind-value:event="oninput" @bind-value="filter.Number[0]"
+                                           @onkeyup="(async (args) => { await FilterData(args, false); showFilters = true; })"
+                                           id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_from")" />
+
+                                    <input type="number" placeholder="Filter To" @onfocusin="() => FilterFieldOnClick(filter, false, false)"
+                                           @onclick="() => { hideInputOutline = false; }"
+                                           style="@(focusedId == $"u_DropDown_{componentId}_filter_{filter.FieldName}_to" && hideInputOutline ? "outline: none;" : "")"
+                                           @onfocusout="FocusOut" @bind-value:event="oninput" @bind-value="filter.Number[1]"
+                                           @onkeyup="(async (args) => { await FilterData(args, false); showFilters = true; })"
+                                           id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_to")" />
+                                    break;
+
+                                case InputType.Checkbox:
+                                    <div tabindex="0" id="@($"u_DropDown_{componentId}_filter_{filter.FieldName}_to")"
+                                         @onfocusout="FocusOut" style="outline:none;">
+                                        <RadzenDropDown Style="@(focusedId == $"u_DropDown_{componentId}_filter_{filter.FieldName}_to" && hideInputOutline ? "outline: none;" : "")"
+                                                        @onclick="() => { hideInputOutline = false; }"
+                                                        Value="filter.Bool" TValue="bool?" @onfocusin="() => FilterFieldOnClick(filter, false, false)"
+                                                        Change="@(async args => { filter.Bool = (bool?)args; await FilterData(); })"
+                                                        AllowClear="true" Placeholder="@($"Filter")"
+                                                        Data="(new bool?[2] { true, false })"></RadzenDropDown>
+                                    </div>
+                                    break;
+                            }
+                        </div>
+                    }
+                </div>*@
+
+                @if (shownData.Any())
+                {
+                    @foreach (var item in shownData)
+                    {
+                        int ii = i;
+                        <div id="@("___" + ii.ToString())"
+                             class="@($"{(arrowKeySelectEnabled && highlightedId == i ? "__selected" : (unHighlightedId == ii ? "__unselected" : ""))}")"
+                             @onmouseover="() => { hoveredOverId = ii; if (!arrowKeySelectEnabled) highlightedId = ii; else unHighlightedId = ii; }">
+                            @foreach (var prop in properties)
+                            {
+                                <div style="max-width:@(ColumnWidth)px;
+                                    @($"{(FlexibleColumnWidth ? "" : $"min-width:{@ColumnWidth}px;")}")"
+                                     @onclick="(() => Selected(item))">
+                                    @if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(DateTime?))
+                                    {
+                                        var value = prop.GetValue(item);
+                                        if (value != null)
+                                        {
+                                            @(((DateTime)value).ToString(DateTimeString))
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @prop.GetValue(item)
+                                    }
+                                </div>
+                            }
+                        </div>
+                        i++;
+                    }
+                }
+                else
+                {
+                    <div class="dropdown_table_empty">No data.</div>
+                }
+            </div>
+        }
+    </div>
+}
+
+
+
+
+
+@code {
+    const int focusOutDelay = 250; // delay, po kurio dingsta lentele kai nebera focus ant textbox
+    const int defaultTextboxWidth = 300; // textbox'o plotis pixel'ias (default: 217px)
+    const int defaultColumnMaxWidth = 130; // dropdown'o (lentelės) vieno column'o plotis pikseliais (default'inė reikšmė, naudojama tada, kai nenustatytas "ColumnWidth" parametras)
+    const int minimumColumnWidth = 100; // stulpelio plotis už šį skaičių mažesnis būti negali (kitaip buginsis css)
+
+    const bool arrowKeysSelect_loopDataList = false; // naudojant arrowKeys (up/down), ar pasirinktus (zaliai highlighted) nulinį duomenų list'o elemeną ir paspaudus eit atgal, select'inti paskutinį elementą? (ir atvirkščiai). ilga eilutė šita xd
+    const int filterShowOrHideDelayOnScroll = 150; // delay milisekundemis kol parodo ar paslepia filtravimo row (naudojamas tik kai scrollina ne su ratuku o paspaude ant scrollbar)
+    const int fadeOutDelay = 150; // po kiek laiko komponentas "iš tikrųjų" išsijungia (kad spėtų opacity transition pasibaigt) (opacity transition time in ms)
+
+
+    /// <summary>
+    /// Dropdown'o duomenys.
+    /// </summary>
+    [Parameter]
+    public IEnumerable<object> Data { get; set; }
+    private IEnumerable<object> filteredData { get; set; }
+    private IEnumerable<object> shownData = Enumerable.Empty<object>();
+
+    /// <summary>
+    /// Matomų stulpelių pavadinimai (turi sutapti su TElement'o field'ų pavadinimais).
+    /// </summary>
+    [Parameter]
+    public IEnumerable<string> ColumnNames { get; set; }
+
+    /// <summary>
+    /// Ar atvaizduojant DateTime'us rodomas laikas? (default: false)
+    /// </summary>
+    //[Parameter]
+    //public bool ShowTime { get; set; } = false;
+
+    /// <summary>
+    /// Kokiu formatu atvaizduojamas DateTime? (default: "yyyy-MM-dd")
+    /// </summary>
+    [Parameter]
+    public string DateTimeString { get; set; } = "yyyy-MM-dd";
+
+    /// <summary>
+    /// Kokį string vaizduoja šitas komponentas, kai jame yra pasirinkta reikšmė? (default: pirmo column'o (iš ColumnNames) reikšmė, t.y. "{ColumnNames[0]}")
+    /// Tarp {} skliaustų įvedamos colum'u reikšmės.
+    /// pvz.: "{Street} {Number}, {City} ({ZipCode})" atvaizduotų pvz. A. Mapų g. 20, Kaunas (LT-44284)
+    /// </summary>
+    [Parameter]
+    public string SelectedString { get; set; }
+
+    /// <summary>
+    /// Placeholder. Kokį string vaizduoja šitas komponentas, kai niekas neįvesta? (default: TElement'o name)
+    /// </summary>
+    [Parameter]
+    public string PlaceHolder { get; set; } = "Unselected";
+
+    /// <summary>
+    /// Ar filtruojant pagal stringus yra svarbios didžiosios/mažosios raidės?
+    /// </summary>
+    [Parameter]
+    public bool FilterStringCaseSensitive { get; set; } = false;
+
+
+    /// <summary>
+    /// Iškviečiamas, kai vartotojas pasirenka (paclick'ina arba su klaviatura) elementą.
+    /// Per parametrus grąžinamas pasirinktas elementas.
+    /// </summary>
+    [Parameter]
+    public EventCallback<object> selected { get; set; }
+
+    /// <summary>
+    /// Iškviečiamas, kai vartotojas pasirenka (paclick'ina arba su klaviatura) elementą.
+    /// Per parametrus grąžinamas pasirinkto elemento Id.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> selectedId { get; set; }
+
+
+    /// <summary>
+    /// Iškviečiamas kai dropdown'e esantis elementas iš pasirinkto tampa nepasirinktu (selectedItem == null).
+    /// Per parametrus grąžinamas boolean, pasakantis, ar dropdown'o reikšmė dabar tuščia.
+    /// </summary>
+    [Parameter]
+    public EventCallback<bool> abort { get; set; }
+
+    /// <summary>
+    /// Pridėjimo komponentas, panaudojantis UniversalAdd.razor komponentą (pvz. CreateAddressComponent)
+    /// Iškviečiamas paspaudus pliusiuką (+) dropDown lentelėje.
+    /// </summary>
+    [Parameter]
+    public RenderFragment AddComponent { get; set; }
+
+    /// <summary>
+    /// CSS styling for this (UniversalDropDown.razor) component.
+    /// </summary>
+    [Parameter]
+    public string Style { get; set; }
+
+    /// <summary>
+    /// CSS styling for this (UniversalDropDown.razor) component's input field.
+    /// </summary>
+    [Parameter]
+    public string StyleInput { get; set; }
+
+    /// <summary>
+    /// CSS styling for this (UniversalDropDown.razor) component's dropdown table.
+    /// </summary>
+    [Parameter]
+    public string StyleDropdown { get; set; }
+
+    /// <summary>
+    /// Z-index for this component.
+    /// </summary>
+    [Parameter]
+    public int zIndex { get; set; } = 1;
+    private string elevatedzIndexForFilter = "";
+
+    /// <summary>
+    /// Vieno dropDown'o lentelės stulpelio max plotis pixeliais.
+    /// Maximum width of one dropDown table column in pixels.
+    /// Minimum value = 100 (px).
+    /// Default value = "defaultColumnMaxWidth" (const int, default: 130)
+    /// </summary>
+    [Parameter]
+    public int ColumnWidth { get; set; } = -1;
+
+    /// <summary>
+    /// CSS Styling for the width of the input field in pixels
+    /// </summary>
+    [Parameter]
+    public int MainInputWidth { get; set; } = defaultTextboxWidth;
+    /// <summary>
+    /// Ar stulpelių (column'ų) pločiai gali skirtis?
+    /// "true" - stulpelio plotis gal būt mažesnis nei max-width jei neužima tiek vietos.
+    /// "false" - visų stulpelių pločiai vienodi = ColumWidth. Jei "ColumnWidth" nenustatytas, tada column'ų pločiai = "defaultColumnMaxWidth" (const int, default: 130)
+    /// </summary>
+    [Parameter]
+    public bool FlexibleColumnWidth { get; set; } = false;
+
+
+
+
+    /// <summary>
+    /// Iškviečiamas, kai vartotojas pasirenka (paclick'ina arba su klaviatura) elementą arba pašalina pasirinkimą.
+    /// Per parametrus grąžinamas pasirinktas elementas arba, jei nurodytas ValueProperty, to elemento nurodyto field'o reikšmė (TValue tipo).
+    /// </summary>
+    [Parameter]
+    public EventCallback<TValue> ValueChanged { get; set; }
+    /// <summary>
+    /// Nurodo, kokio pasirinkto TElement objekto field'o reikšmė bus grąžinama naudojant @bind-value (default: "Id")
+    /// Jei nenurodytas, bus grąžinamas pats pasirinktas elementas TElement (TElement = nurodytas parametras TValue)
+    /// TElement - tai elemento, kurio paduotas Data listas, tipas (IEnumerable<TElement>)
+    /// </summary>
+    [Parameter]
+    public string ValueProperty { get; set; } = "Id";
+    private PropertyInfo valProperty;
+    /// <summary>
+    /// Pasirinkta šio dropdown'o elemento reikšmė (naudojama @bind-value)
+    /// Jei ValueProperty nenurodytas, value yra pats objektas, kurio listas yra paduotas (parametru Data)
+    /// </summary>
+    [Parameter]
+    public TValue Value
+    {
+        get
+        {
+            if (valProperty is null)
+                return (TValue)selectedItem;
+            return (TValue)valProperty.GetValue(selectedItem);
+        }
+        set
+        {
+            if (!typeLoaded && !loadType())
+                return;
+
+            if (value is object) // jei paduotas value != null
+            {
+                if (valProperty is null) // jei ValueProperty == "" (TValue yra tipas, kur Data listas = IEnumerable<TValue>)
+                {
+                    if (type != value.GetType() || type != typeof(TValue))
+                        return;
+
+                    selectedItem = (TValue)value;
+                    input = NewSelectedString(selectedItem);
+                }
+                else // jei ValueProperty nurodytas
+                {
+                    var founditem = Data.FirstOrDefault(e => (valProperty.GetValue(e) ?? "").ToString() == value.ToString());
+                    selectedItem = founditem ?? DefaultValue();
+                    input = NewSelectedString(selectedItem);
+                }
+            }
+            else // jei paduotas value == null
+            {
+                selectedItem = DefaultValue();
+                input = "";//NewSelectedString(selectedItem);
+            }
+        }
+    }
+
+
+    protected object selectedItem { get; set; }
+
+
+    Type type;// = typeof(TElement);
+    bool typeLoaded;
+    IEnumerable<PropertyInfo> properties = Enumerable.Empty<PropertyInfo>();
+
+    string input;
+    bool show, add, clickedOn, loaded, addWindowOpening, arrowKeySelectEnabled, showFilters = true;
+
+
+    List<Filter> filters = new List<Filter>();
+    InputType selectedFilterType;
+
+    ObjectComparer<object> comparer;
+
+    int componentId = -1;
+
+    double leftOffset = 0;
+
+    int highlightedId = -1;
+    int unHighlightedId = -1;
+    int hoveredOverId = -1;
+
+    string focusedId = "";
+
+    double scrollOffset = 0;
+    bool scrolling = false;
+
+    bool hideInputOutline = false;
+
+    bool isTableTransparent = true;
+
+    bool focusingOut;
+
+
+    IEnumerable<string> specialKeys = Enumerable.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!typeLoaded && !loadType())
+        {
+            await InvokeAsync(() => { loaded = true; });
+            return;
+        }
+
+
+        Load();
+
+        await InvokeAsync(() => { loaded = true; });
+    }
+
+    protected bool loadType()
+    {
+        //var givenFirstItem = (Data ?? Enumerable.Empty<object>()).FirstOrDefault();
+        if (Data is null)
+        {
+            input = "Duotas listas \"Data\" yra null.";
+            return false;
+        }
+        type = Data.GetType().GetGenericArguments()[0];
+
+        foreach (string col in ColumnNames) // -- islaiko ivedami tvarka
+        {
+            var prop = type.GetProperty(col);
+            if (prop != null)
+                properties = properties.Append(prop);
+        }
+
+        if (type != typeof(TValue)/*ValueProperty != ""*/) // jei pasirinktas TValue != Data listo duomenu tipas (naudojamas TElemento kazkoks property, kuris yra TValue tipo)
+        {
+            PropertyInfo prop = type.GetProperties().FirstOrDefault(e => e.Name.ToLower() == ValueProperty.ToLower());
+            if (prop is null)
+                input = $"Nėra tokio property \"{ValueProperty}\" (ValueProperty) klasėje {type.ToString()}.";
+            else
+                valProperty = prop;
+        }
+
+        return typeLoaded = true;
+    }
+
+    protected void Load()
+    {
+        componentId = windowState.OpenNewComponent();
+
+        if (ColumnWidth < minimumColumnWidth)
+            ColumnWidth = defaultColumnMaxWidth;
+
+
+        //properties = type.GetProperties().Where(e => ColumnNames.Contains(e.Name)); -- neislaiko ivedimo tvarkos
+
+        comparer = new ObjectComparer<object>(properties);
+
+        foreach (var prop in properties)
+            filters.Add(new Filter(prop, false));
+
+        filteredData = Data.ToList();
+        shownData = Data.ToList();
+
+
+
+        LoadMisc();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+
+            // kiek pixeliu nuo kaires browser lango yra sitas componentas (UniversalDropDown.razor)
+
+            double viewportOffset = await JSRuntime.InvokeAsync<double>("elementBounding", $"u_DropDown_{componentId}", "left"); // x axis offset of this component (UniversalDropDown.razor) in the viewport
+            int maxWidth = ColumnNames.Count() * ColumnWidth; // (max) width of entire dropdown table
+
+            int vw = await JSRuntime.InvokeAsync<int>("vw", null); // width of viewport
+            if ((vw - viewportOffset) < maxWidth) // < ----------------------------- senas, naudojant pixels
+            {
+                leftOffset = maxWidth - (vw - viewportOffset) + 42;
+            }
+
+            //if (((vw - viewportOffset) / vw) < (maxWidth / vw)) // <------------------- naujas, naudojant procentus (veikia kai yra browser window zoom)
+            //{
+            //    leftOffset = ((maxWidth / vw) - ((vw - viewportOffset) / vw));// + 30;
+            //}
+
+            //if (((1 - viewportOffset / vw) / vw) < (maxWidth / vw)) // <------------------- naujas, naudojant procentus (veikia kai yra browser window zoom)
+            //{
+            //    leftOffset = ((maxWidth / vw) - ((1 - viewportOffset / vw) / vw));// + 30;
+            //}
+        }
+
+        // visiems RadzenDatePicker input'ams uzdeda readonly attribute, kad useris negaletu ivest savo datos (ir negaletu uzcrash'inti lango, kai iveda data, kurios parsint i DateTime neimanoma)
+        await JSRuntime.InvokeVoidAsync("SetAttributeByClass", "ui-inputtext", "readonly", "readonly");
+        base.OnAfterRender(firstRender);
+    }
+
+
+    protected async Task SetFocus()
+    {
+        await SetFocus($"u_DropDown_{componentId}_input");
+    }
+
+    protected async Task SetFocus(string elementId)
+    {
+        //if (focusedId == elementId)
+        //    return;
+        await JSRuntime.InvokeVoidAsync("SetFocus", elementId);
+        focusedId = elementId;
+    }
+
+
+    protected async Task Clicked()
+    {
+        clickedOn = true;
+        focusedId = $"u_DropDown_{componentId}_input";
+
+        //input = test.FirstOrDefault().GetType().ToString();
+
+        if (focusingOut)
+            await Task.Delay(focusOutDelay);
+        else if (show/* || selectedItem != null*/)
+            return;
+
+        await JSRuntime.InvokeVoidAsync("EnableDefaultScrollKeysOverride");
+
+        show = true;
+        StateHasChanged();
+        await Task.Delay(50);
+        isTableTransparent = false;
+        StateHasChanged();
+    }
+
+    protected async Task FocusOut()
+    {
+        //return;
+
+        if (focusingOut)
+            return;
+        focusingOut = true;
+
+        clickedOn = false;
+        await Task.Delay(focusOutDelay);
+        if (clickedOn)
+            clickedOn = false;
+        else if (!add)
+        {
+            isTableTransparent = true;
+            StateHasChanged();
+            await Task.Delay(fadeOutDelay);
+
+
+            await JSRuntime.InvokeVoidAsync("DisableDefaultScrollKeysOverride");
+            show = false;
+            highlightedId = -1;
+            focusedId = "";
+            //add = false;
+            StateHasChanged();
+            hideInputOutline = false;
+        }
+        focusingOut = false;
+    }
+
+    protected async Task FocusOut(string elementId)
+    {
+        if (add || elementId != componentId.ToString())
+            return;
+        await FocusOut();
+    }
+
+    protected async Task ClearSelected(KeyboardEventArgs args)
+    {
+        if (args is null || args.AltKey || args.CtrlKey || specialKeys.Contains(args.Key) || args.Key.StartsWith("Arrow"))
+            return;
+
+        await abort.InvokeAsync(string.IsNullOrEmpty(input));
+        shownData = Data.ToList();
+
+        show = true;
+        selectedItem = DefaultValue();//default(TElement);
+                                      //await ValueChanged.InvokeAsync(default(TElement));
+        await ValueChanged.InvokeAsync(default(TValue));
+        await Task.Delay(50);
+        isTableTransparent = false;
+        StateHasChanged();
+
+        input = "";
+        filters.ForEach(e => e.Clear());
+        highlightedId = -1;
+    }
+
+    protected async Task Scrolled()
+    {
+        if (scrolling)
+            return;
+        //await Task.Delay(filterShowOrHideDelayOnScroll);
+        //if (scrolling)
+        //    return;
+
+
+        //bool exit = false;
+        //if (Monitor.TryEnter(this, 0))
+        //{
+        //    try
+        //    {
+        //        if (!(scrolling || selectedFilterType == InputType.Decimal || selectedFilterType == InputType.Number))
+        //            scrolling = true;
+        //        else
+        //            exit = true;
+        //    }
+        //    finally
+        //    {
+        //        Monitor.Exit(this);
+        //    }
+        //}
+        //else
+        //    return;
+
+        //if (exit)
+        //    return;
+
+        lock (this)
+        {
+            if (scrolling || selectedFilterType == InputType.Decimal || selectedFilterType == InputType.Number)
+                return;
+            scrolling = true;
+        }
+
+
+        double newScroll = await JSRuntime.InvokeAsync<double>("ScrollTop", $"u_DropDown_{componentId}_dropdown_table");
+
+        elevatedzIndexForFilter = "";
+        if (newScroll >= scrollOffset) // scrolled down
+        {
+            showFilters = false;
+        }
+        else // scrolled up
+            showFilters = true;
+        scrollOffset = newScroll;
+        await Task.Delay(filterShowOrHideDelayOnScroll);
+        scrolling = false;
+    }
+
+    protected async Task ScrolledWheel(WheelEventArgs args)
+    {
+        scrolling = true;
+        if (args.DeltaY == 0)
+            return;
+
+        elevatedzIndexForFilter = "";
+        if (args.DeltaY >= 0) // scrolled down
+        {
+            showFilters = false;
+        }
+        else // scrolled up
+            showFilters = true;
+
+        await Task.Delay(filterShowOrHideDelayOnScroll * 50);
+        scrolling = false;
+    }
+
+    protected async Task DateTimeClear(Filter filter, bool from)
+    {
+        clickedOn = true;
+        filter.Date[(from ? 0 : 1)] = null;
+        await FilterData();
+        await SetFocus($"u_DropDown_{componentId}_filter_{filter.FieldName}_{(from ? "from" : "to")}");
+    }
+
+    protected async Task FilterData(KeyboardEventArgs args, bool arrowKeysIgnored)
+    {
+        if (args is null || args.AltKey || args.CtrlKey || specialKeys.Contains(args.Key) || (arrowKeysIgnored && args.Key.StartsWith("Arrow")))
+            return;
+        await FilterData();
+    }
+
+    protected async Task FilterData()
+    {
+        await Task.Run(() =>
+        {
+            var dataToFilter = Data.ToList();
+            foreach (Filter filtras in filters.Where(x => x.IsPartiallySet()))
+            {
+                dataToFilter = dataToFilter.Where(x => filtras.SatisfiesFilter(x, FilterStringCaseSensitive)).ToList();
+            }
+            filteredData = dataToFilter;
+        });
+        await SortData();
+    }
+
+
+    protected async Task Add()
+    {
+        add = !add;
+        StateHasChanged();
+    }
+
+    protected async Task AddClose(string elementId)
+    {
+        if (elementId != componentId.ToString())
+            return;
+        await SetFocus();
+        add = false;
+        StateHasChanged();
+    }
+
+    protected async Task Selected(object item)
+    {
+        clickedOn = true;
+        isTableTransparent = true;
+        await Task.Delay(focusOutDelay);
+
+        highlightedId = -1;
+        selectedItem = item;
+
+
+
+        if (valProperty is null)
+        {
+            Value = (TValue)item;
+            await ValueChanged.InvokeAsync((TValue)item);
+        }
+        else
+        {
+            var boundValue = (TValue)valProperty.GetValue(item);
+            Value = boundValue;
+            await ValueChanged.InvokeAsync(boundValue);
+        }
+
+
+        await selected.InvokeAsync(item);
+        //input = NewSelectedString();
+
+        add = false;
+        int id = Convert.ToInt32(type.GetProperties().FirstOrDefault(e => e.Name.ToLower() == "id").GetValue(item));
+        await selectedId.InvokeAsync(id);
+        show = false;
+        clickedOn = false;
+        focusedId = "";
+    }
+
+
+
+
+
+    protected async Task KeyDown(KeyboardEventArgs args)
+    {
+        if (args.ShiftKey || args.CtrlKey || shownData.Count() == 0)
+            return;
+        switch (args.Key)
+        {
+            case "ArrowDown":
+                if (!arrowKeySelectEnabled)
+                {
+                    unHighlightedId = hoveredOverId;
+                    arrowKeySelectEnabled = true;
+                }
+
+                if (++highlightedId > shownData.Count() - 1/* && arrowKeysSelect_loopDataList*/)
+                    highlightedId = 0;
+
+                showFilters = false;
+                await JSRuntime.InvokeAsync<bool>("ScrollIntoViewFixed", ("___" + highlightedId.ToString()), (args.Repeat ? "auto" : "smooth"), "center");
+                break;
+            case "ArrowUp":
+                if (!arrowKeySelectEnabled)
+                {
+                    unHighlightedId = hoveredOverId;
+                    arrowKeySelectEnabled = true;
+                }
+
+                if (--highlightedId < 0/* && arrowKeysSelect_loopDataList*/)
+                    highlightedId = shownData.Count() - 1;
+
+                showFilters = true;
+                await JSRuntime.InvokeAsync<bool>("ScrollIntoViewFixed", ("___" + highlightedId.ToString()), (args.Repeat ? "auto" : "smooth"), "end");
+                break;
+            //case "Tab":
+            //    if (highlightedId == -1)
+            //        //highlightedId = 0;
+            //        return;
+            //    await Selected(shownData.ElementAt(highlightedId));
+            //    break;
+            case "Enter":
+                if (highlightedId == -1)
+                    return;
+                await Selected(shownData.ElementAt(highlightedId));
+                show = true;
+                clickedOn = true;
+                break;
+
+        }
+        hideInputOutline = false;
+    }
+
+    protected async Task ClickedOnTableHeader()
+    {
+        if (addWindowOpening)
+            addWindowOpening = false;
+        else
+        {
+            clickedOn = true;
+            if (add)
+                await SetFocus();
+            else
+                await SetFocus(focusedId);
+        }
+    }
+
+    protected string AddSpaces(string item)
+    {
+        string result = "" + item[0];
+        for (int i = 1; i < item.Length; i++)
+        {
+            if (Char.IsUpper(item[i]))
+                result += " ";
+            result += item[i];
+        }
+        return result;
+    }
+
+    protected string NewSelectedString(object value)
+    {
+        if (value == null)
+            return "";
+        if (string.IsNullOrEmpty(SelectedString))
+            return properties.First().GetValue(value).ToString();
+
+        string result = "";
+        string property = "";
+        bool readingProperty = false;
+
+        for (int i = 0; i < SelectedString.Length; i++)
+        {
+            if (!readingProperty)
+            {
+                if (SelectedString[i] == '{')
+                    readingProperty = true;
+                else
+                    result += SelectedString[i];
+            }
+            else
+            {
+                if (SelectedString[i] == '}')
+                {
+                    var prop = properties.FirstOrDefault(e => e.Name == property);
+                    if (prop is null)
+                        return $"Nera tokio field \"{property}\" klaseje \"{type.Name}\".";
+
+                    readingProperty = false;
+                    property = "";
+
+                    if (prop.GetValue(value) is null)
+                        continue;
+
+                    if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(DateTime?))
+                        result += ((DateTime)prop.GetValue(value)).ToString(DateTimeString);
+                    else
+                        result += prop.GetValue(value).ToString();
+
+                }
+                else
+                    property += SelectedString[i];
+            }
+        }
+        return result;
+    }
+
+    protected void FilterFieldOnClick(Filter filter, bool isText, bool filterFrom)
+    {
+        clickedOn = true;
+        selectedFilterType = filter.Type;
+        focusedId = $"u_DropDown_{componentId}_filter_{filter.FieldName}{(isText ? "" : (filterFrom ? "_from" : "_to"))}";
+    }
+
+    protected void ShowFilter(KeyboardEventArgs args)
+    {
+        if (!args.Key.StartsWith("Arrow"))
+            showFilters = true;
+    }
+
+    public async Task SortByColumn(string columnId)
+    {
+        if (addWindowOpening)
+            return;
+        hideInputOutline = true;
+        comparer.ToggleSorting(columnId);
+        await SortData();
+        StateHasChanged();
+    }
+
+    public async Task SortData()
+    {
+        await Task.Run(() =>
+        {
+            if (comparer.SortingIsSet)
+            {
+                var shownDataCopyArray = filteredData.ToArray();
+                Array.Sort<object>(shownDataCopyArray, comparer);
+                shownData = shownDataCopyArray.ToList();
+            }
+            else
+                shownData = filteredData.ToList();
+        });
+    }
+
+    protected void LoadMisc()
+    {
+        // keys ignored from filtering
+        List<string> result = new List<string>() { "Tab", "CapsLock", "ShiftLeft", "Shift", "ShiftRight", "ControlLeft", "ControlRight", "Control", "AltLeft", "AltRight" ,"Alt", "Fn", "Function", "Enter", "PrintScreen", "Pause", "Break", "Insert", "Home", "PageUp", "PageDown",
+        "End", "NumLock", "AudioVolumeUp", "AudioVolumeDown", "ScrollLock", "ContextMenu", "Escape", "MetaLeft", "MetaRight", "Meta"/*, "ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"*/};
+        for (int i = 1; i < 25; i++)
+            result.Add($"F{i}");
+
+        specialKeys = result;
+
+        //loads input placeholder
+        string[] trimmedSuffixes = { "ViewModel", "Model", "Dto" };
+        if (PlaceHolder == "Unselected")
+        {
+            string trimmedSuffix = "";
+            foreach (string suffix in trimmedSuffixes)
+            {
+                if (type.Name.EndsWith(suffix, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    trimmedSuffix = suffix;
+                    break;
+                }
+            }
+            if (trimmedSuffix.Length > 0)
+                PlaceHolder = AddSpaces(type.Name.Replace(trimmedSuffix, ""));
+            else
+                PlaceHolder = AddSpaces(type.Name);
+        }
+    }
+
+    protected object DefaultValue()
+    {
+        if (type != null && type.IsValueType)
+            return Activator.CreateInstance(type);
+
+        return null;
+    }
+
+}

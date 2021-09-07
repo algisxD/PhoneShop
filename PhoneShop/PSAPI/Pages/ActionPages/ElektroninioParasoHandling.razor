@@ -1,0 +1,86 @@
+﻿@page "/buySignature/{TelefonoId:int}/"
+@page "/buySignature/{TelefonoId:int}/{PlanoId:int}"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using System.Net;
+@using System.IO;
+@using PSAPI.Data.Entities;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+@inject SessionService session
+
+<h1>Pirkti el. parašą</h1>
+<div class="@(telefonas is null ? "spinner" : null)"></div>
+@if (telefonas is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="about-item-component">
+        <div>Įveskite pin kodą</div>
+        <input @bind-value="eParasoPin" class="form-control validation-dalykas @(validation ? "" : "validation-error")" />
+        <div>Įveskite pin kodą dar kartą</div>
+        <input @bind-value="eParasoPin1" class="form-control validation-dalykas @(validation ? "" : "validation-error")" />
+    </div>
+
+    <button @onclick="pridetiParasa" style="margin-top:20px" class="btn btn-success">Apmokėti</button>
+}
+
+@code {
+    [Parameter]
+    public int TelefonoId { get; set; }
+
+    [Parameter]
+    public int PlanoId { get; set; }
+
+    string eParasoPin = "", eParasoPin1 = "";
+
+    bool validation = true;
+
+    TelefonoModelisViewModel telefonas;
+
+    PlanasViewModel planas;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, TelefonoId);
+        if (PlanoId != 0)
+            planas = await commonService.GetPlanasAsync(navManager.BaseUri, PlanoId);
+    }
+
+    protected bool Validate(string input)
+    {
+        if (input.Length != 4 || !input.All(e => char.IsDigit(e)))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected async Task pridetiParasa()
+    {
+        if (Validate(eParasoPin) && Validate(eParasoPin1) && eParasoPin == eParasoPin1)
+        {
+            EParasas parasas = new EParasas()
+            {
+                Pin = Convert.ToInt32(eParasoPin),
+                PlanasId = PlanoId
+            };
+            var parasoId = await commonService.InsertEParasasAsync(navManager.BaseUri, parasas);
+
+            navManager.NavigateTo($"/pay/{TelefonoId}/{PlanoId}/{parasoId}");
+
+        }
+        else
+        {
+            validation = false;
+            StateHasChanged();
+            await Task.Delay(1000);
+            validation = true;
+        }
+    }
+}

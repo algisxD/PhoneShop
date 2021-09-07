@@ -1,0 +1,64 @@
+﻿@inject NavigationManager navManager
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <ul class="nav flex-column">
+        <li class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Home
+            </NavLink>
+        </li>
+        <li class="nav-item px-3">
+            <NavLink @onclick="openDetales" style="cursor:pointer; color: white;" class="nav-link">
+                <span class="oi oi-plus" aria-hidden="true"></span> Detalės
+            </NavLink>
+        </li>
+        <li class="nav-item px-3">
+            <NavLink @onclick="OpenPlans" style="cursor:pointer; color: white;" class="nav-link">
+                <span class="oi oi-plus" aria-hidden="true"></span> Planai
+            </NavLink>
+        </li>
+        <li class="nav-item px-3">
+            <NavLink @onclick="OpenPrekes" style="cursor:pointer; color: white;" class="nav-link">
+                <span class="oi oi-plus" aria-hidden="true"></span> Telefonai
+            </NavLink>
+        </li>
+    </ul>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private void OpenPlans()
+    {
+        navManager.NavigateTo("/planai");
+    }
+
+    private void openDetales()
+    {
+        navManager.NavigateTo("/detales");
+    }
+
+    private void OpenPrekes()
+    {
+        navManager.NavigateTo("/telefonailist");
+    }
+
+    //protected override async Task OnInitializedAsync()
+    //{
+    //    var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    //    loggedIn = authState.User.Identity.IsAuthenticated;
+    //    userName = authState.User.Identity.Name;
+
+    //    useris = await UserManager.GetUserAsync(authState.User);
+    //    //loaded = true;
+    //}
+}

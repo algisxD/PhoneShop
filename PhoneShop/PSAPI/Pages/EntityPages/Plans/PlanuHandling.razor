@@ -1,0 +1,89 @@
+﻿@page "/planai"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Planai</h1>
+<div class="@(planai is null ? "spinner" : null)"></div>
+@if (planai is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div @onclick="pasirinktiAdd">
+         <button class="btn btn-success">Pridėti naują planą</button>
+    </div>
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Pavadinimas</th>
+                <th>Mėnesinis mokestis</th>
+                <th>Galiojimo laikotarpis</th>
+                <th>Redaguoti</th>
+                <th>Šalinti</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (PlanasViewModel planas in planai)
+            {
+                int ii = planas.Id;
+                <tr>
+                    <td>@planas.Id</td>
+                    <td>@planas.Pavadinimas</td>
+                    <td>@planas.MenMokestis</td>
+                    <td>@planas.GaliojimoLaikas</td>
+
+                    <td>
+                        <div @onclick="() => pasirinktiEdit(ii)">
+                            <i class="fas fa-edit fa-2x btn-live"></i>
+                        </div>
+                    </td>
+                    <td>
+                        <div @onclick="() => pasirinktiDelete(ii)">
+                            <i class="fas fa-trash fa-2x btn-live" aria-hidden="true"></i>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    
+}
+
+@code {
+    IEnumerable<PlanasViewModel> planai;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        planai = await commonService.GetPlanaiAsync(navManager.BaseUri);
+    }
+
+    protected async Task pasirinktiDelete(int id)
+    {
+        planai = planai.Where(e => e.Id != id);
+        await commonService.DeletePlanasAsync(navManager.BaseUri, id);
+        StateHasChanged();
+    }
+
+    //    protected async Task PasirinktiDelete(int id)
+    //{
+    //    telefonai = telefonai.Where(e => e.Id != id);
+    //    await commonService.DeleteTelefonoModelisAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+
+    protected void pasirinktiAdd()
+    {
+        navManager.NavigateTo("/planas/add");
+    }
+
+    protected void pasirinktiEdit(int id)
+    {
+        navManager.NavigateTo($"/planas/edit/{id}");
+    }
+}

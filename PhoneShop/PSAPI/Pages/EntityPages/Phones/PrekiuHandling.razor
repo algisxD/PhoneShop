@@ -1,0 +1,80 @@
+﻿@page "/telefonailist"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Telefonai</h1>
+<div class="@(telefonai is null ? "spinner" : null)"></div>
+@if (telefonai is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <button @onclick="AddPreke" class="btn btn-success">Pridėti naują telefoną</button>
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Telefono modelis</th>
+                <th>Pavadinimas</th>
+                <th>Pagaminimo Data</th>
+                <th>Kaina</th>
+                <th>Redaguoti</th>
+                <th>Šalinti</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (TelefonoModelisViewModel telefonas in telefonai)
+            {
+                int ii = telefonas.Id;
+                <tr>
+                    <td>@telefonas.Id</td>
+                    <td>@telefonas.Gamintojas</td>
+                    <td>@telefonas.Pavadinimas</td>
+                    <td>@telefonas.IsleidimoData</td>
+                    <td>@telefonas.Kaina</td>
+                    <td>
+                        <div @onclick="() => EditPreke(ii)">
+                            <i class="fas fa-edit fa-2x btn-live"></i>
+                        </div>
+                    </td>
+                    <td>
+                        <div @onclick="() => PasirinktiDelete(ii)">
+                            <i class="fas fa-trash fa-2x btn-live" aria-hidden="true"></i>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    IEnumerable<TelefonoModelisViewModel> telefonai;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+    }
+
+    protected async Task PasirinktiDelete(int id)
+    {
+        telefonai = telefonai.Where(e => e.Id != id);
+        await commonService.DeleteTelefonoModelisAsync(navManager.BaseUri, id);
+        StateHasChanged();
+    }
+
+    protected void AddPreke()
+    {
+        navManager.NavigateTo("/telefonailist/add");
+    }
+
+    protected void EditPreke(int id)
+    {
+        navManager.NavigateTo($"/telefonailist/edit/{id}");
+    }
+}

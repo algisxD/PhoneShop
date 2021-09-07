@@ -1,0 +1,88 @@
+﻿@page "/telefonasreturn/telefonasexchange"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using PSAPI.Data.Entities 
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+@inject SessionService session
+
+<h1>Telefonai</h1>
+<div class="@(telefonai is null ? "spinner" : null)"></div>
+@if (telefonai is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Telefono modelis</th>
+                <th>Pavadinimas</th>
+                <th>Pagaminimo Data</th>
+                <th>Kaina</th>
+                <th>Pasirinkti</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (TelefonoModelisViewModel telefonas in telefonai)
+            {
+                if (telefonas.Kaina < session["telefonoKaina"])
+                {
+                    int ii = telefonas.Id;
+                    <tr>
+                        <td>@telefonas.Id</td>
+                        <td>@telefonas.Gamintojas</td>
+                        <td>@telefonas.Pavadinimas</td>
+                        <td>@(((DateTime)telefonas.IsleidimoData).ToString("yyyy-MM-dd"))</td>
+                        <td>@telefonas.Kaina</td>
+                        <td>
+                            <div @onclick="() => selectTel(ii)"><i class="fas fa-exchange-alt fa-2x btn-live"></i></div>
+                        </td>
+                    </tr>
+                }
+            }
+            @if (!telefonai.Any(e => e.Kaina < session["telefonoKaina"]))
+            {
+                <tr><td colspan="6" style="text-align:center">Nėra pigesnių telefonų.</td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+
+    IEnumerable<TelefonoModelisViewModel> telefonai;
+
+    UzsakymasViewModel uzsakymas;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonai = await commonService.GetTelefonoModeliaiAsync(navManager.BaseUri);
+        int debug = session["uzsakymoId"];
+        uzsakymas = await commonService.GetUzsakymasAsync(navManager.BaseUri, debug.ToString());
+    }
+
+    protected async Task selectTel(int naujoId)
+    {
+        uzsakymas.TelefonoModelisId = naujoId;
+        await commonService.UpdateUzsakymasAsync(navManager.BaseUri, FromViewModel());
+        navManager.NavigateTo("telefonasreturn");
+    }
+
+    protected Uzsakymas FromViewModel()
+    {
+        return new Uzsakymas()
+        {
+            Id = uzsakymas.Id,
+            UzsakymoTipas = uzsakymas.UzsakymoTipas,
+            Data = uzsakymas.Data,
+            ApmokejimoBusena = uzsakymas.ApmokejimoBusena,
+            KlientoId = uzsakymas.KlientoId,
+            TelefonoModelisId = uzsakymas.TelefonoModelisId
+        };
+    }
+}

@@ -1,0 +1,120 @@
+﻿@page "/telefonasreturn"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using Microsoft.AspNetCore.Identity;
+
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject CommonService commonService
+@inject NavigationManager navManager
+@inject SessionService session
+
+<h1>Jūsų paskutinis pirkinys</h1>
+<div class="@(saskaita is null ? "spinner" : null)"></div>
+@if (saskaita is null || UserId is null)
+{
+    <p>Loading...</p>
+}
+else if (saskaita.Id != -1)
+{
+    <table class='table table-hover'>
+        <thead>
+            <tr>
+                <th>Vartotojo sąskaita</th>
+                <th>Sąskaitos suma</th>
+                <th>Apmokėjimo data</th>
+                <th>Apmokėjimo terminas</th>
+                <th>Sąskaitos būsena</th>
+                <th>Telefono pavadinimas</th>
+                <th>Telefono kaina</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@userName</td>
+                <td>@saskaita.Suma</td>
+                <td>@saskaita.ApmokejimoData</td>
+                <td>@saskaita.ApmokejimoTerminas</td>
+                <td>@saskaita.Busena</td>
+                <td>@saskaita.TelefonoPavadinimas</td>
+                <td>@saskaita.TelefonoKaina</td>
+            </tr>
+        </tbody>
+    </table>
+    <label for="gražinimas">Ar tikrai norite gražinti telefoną? (Įveskite "TAIP"):</label>
+    <br>
+    <input class="form-control" style="max-width:100px" type="text" id="gražinimas" name="gražinimas" @bind-value="patvirtinimas">
+    <div @onclick="sendAnketa"><i class="fas fa-exchange-alt fa-2x btn-live"></i></div>
+
+    if (showErrorMessage)
+    {
+        <div class="deleteModal">
+            <div class="modalheader">Apgailėstaujame</div>
+            <div class="modalcontent">30-ties dienų gražinimo laikotarpis jau baigėsi</div>
+            <div class="modalfooter">
+                <button @onclick="pressOk" class="btn btn-info">Gerai</button>
+            </div>
+        </div>
+    }
+}
+else
+{
+    <h2>Jūs nepirkote jokių telefonų.</h2>
+}
+
+@code {
+    SaskaitaViewModel saskaita;
+
+    string UserId = "1";
+    string userName = "";
+
+    string patvirtinimas;
+
+    bool showErrorMessage;
+
+    int grazinimoLaikotarpis = 30;
+
+    protected void sendAnketa()
+    {
+        if (Validate())
+        {
+            if (patvirtinimas == "TAIP")
+            {
+                session["telefonoKaina"] = saskaita.TelefonoKaina;
+                session["uzsakymoId"] = saskaita.UzsakymasId;
+                navManager.NavigateTo("telefonasreturn/telefonasexchange");
+            }
+        }
+        else
+            showErrorMessage = true;
+    }
+
+    protected bool Validate()
+    {
+        DateTime saskaitos = saskaita.UsakymasData.AddDays(grazinimoLaikotarpis); // 30 dienu grazinimo laikotarpis
+        if (saskaitos > DateTime.Now)
+            return true;
+        return false;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        //var user = authState.User
+        //UserId = authState.User.Identity.Name;
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        bool loggedIn = authState.User.Identity.IsAuthenticated;
+        if (loggedIn)
+        {
+            userName = (await UserManager.GetUserAsync(authState.User)).UserName;
+            UserId = (await UserManager.GetUserAsync(authState.User)).Id;
+            saskaita = await commonService.GetSaskaitaAsync(navManager.BaseUri, UserId);
+        }
+        //navManager.NavigateTo("Identity/Account/Login");
+    }
+
+    protected void pressOk()
+    {
+        showErrorMessage = false;
+    }
+}

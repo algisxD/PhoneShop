@@ -1,0 +1,86 @@
+﻿@page "/buyPlan/{TelefonoId:int}"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using System.Net;
+@using System.IO;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Pirkti planą</h1>
+<div class="@(telefonas is null ? "spinner" : null)"></div>
+@if (telefonas is null || planai is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Pavadinimas</th>
+                <th>Mėnesinis mokestis</th>
+                <th>Galiojimo laikas dienomis</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (PlanasViewModel plan in planai)
+            {
+                int ii = plan.Id;
+                <tr style="cursor:pointer" @onclick="() => ChoosePlan(ii)">
+                    <td>@plan.Pavadinimas</td>
+                    <td>@plan.MenMokestis</td>
+                    <td>@plan.GaliojimoLaikas</td>
+                    <td>
+                        <div style="display:@(ii == selectedPlanId ? "inherit" : "none")">
+                            <button @onclick="pasirinktiApmoketi" style="margin-top:20px" class="btn btn-success">Apmokėti</button>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display:@(ii == selectedPlanId ? "inherit" : "none")">
+                            <button @onclick="pasirinktiParasa" style="margin-top:20px" class="btn btn-danger">Pirkti elektroninį parašą</button>
+                        </div>
+                        
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+}
+
+@code {
+    [Parameter]
+    public int TelefonoId { get; set; }
+
+
+    TelefonoModelisViewModel telefonas;
+
+    int selectedPlanId = 0;
+
+    IEnumerable<PlanasViewModel> planai;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        telefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, TelefonoId);
+        planai = await commonService.GetPlanaiAsync(navManager.BaseUri);
+    }
+
+    protected void pasirinktiApmoketi()
+    {
+        navManager.NavigateTo($"/pay/{TelefonoId}/{selectedPlanId}");
+    }
+
+    protected void ChoosePlan(int id)
+    {
+        selectedPlanId = id;
+    }
+
+    protected void pasirinktiParasa()
+    {
+        navManager.NavigateTo($"/buySignature/{TelefonoId}/{selectedPlanId}");
+    }
+}

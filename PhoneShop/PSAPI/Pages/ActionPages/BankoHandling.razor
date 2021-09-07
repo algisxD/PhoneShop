@@ -1,0 +1,72 @@
+﻿@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using System.Net;
+@using System.IO;
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+@implements IDisposable
+
+@if (Valid)
+{
+    @*<i class="fas fa-check fa-3x" style="color:forestgreen"></i>*@
+}
+
+
+@code {
+    [Parameter]
+    public EventCallback<bool> Validated { get; set; }
+
+    [Parameter]
+    public bool Valid { get; set; }
+
+    [Parameter]
+    public bool Paid
+    {
+        get { return _paid; }
+        set { _paid = value; if (_paid && !_paidOnce) ConfirmPayment();  }
+    }
+    bool _paid, _paidOnce;
+
+    [Parameter]
+    public EventCallback<bool> PaymentConfirmed { get; set; }
+
+
+
+    //string imageUrl = System.Web.HttpContext.Current.Server.MapPath("~/fotkes" + filePath);
+
+    //IEnumerable<TelefonoModelisViewModel> telefonoModeliiai;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await DirectToBank();
+    }
+
+    protected async Task DirectToBank()
+    {
+        if (Validated.HasDelegate)
+            await Validated.InvokeAsync(true);
+    }
+
+    protected async Task ConfirmPayment()
+    {
+        _paidOnce = true;
+        if (PaymentConfirmed.HasDelegate)
+            await PaymentConfirmed.InvokeAsync(true);
+    }
+
+    public void Dispose()
+    {
+        Valid = false;
+    }
+
+    //protected async Task Removetelefons(int id)
+    //{
+    //    telefonss = telefonss.Where(e => e.Id != id);
+    //    await commonService.DeletetelefonsAsync(navManager.BaseUri, id);
+    //    StateHasChanged();
+    //}
+}

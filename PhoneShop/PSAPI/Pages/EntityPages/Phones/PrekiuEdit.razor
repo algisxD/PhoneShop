@@ -1,0 +1,100 @@
+﻿@page "/telefonailist/edit/{telefonasId:int}"
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using PSAPI.Data.Entities
+
+@inject CommonService commonService
+@inject NavigationManager navManager
+
+<h1>Redaguoti telefoną</h1>
+<div class="@(selectedTelefonas is null ? "spinner" : null)"></div>
+@if (selectedTelefonas is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="editinimo-dalykas">
+        <div>
+            <h3>Gamintojas</h3>
+            <input type="text" class="form-control" spellcheck="false" @bind-value="selectedTelefonas.Gamintojas" />
+        </div>
+        <div>
+            <h3>Pavadinimas</h3>
+            <input type="text" class="form-control" spellcheck="false" @bind-value="selectedTelefonas.Pavadinimas" />
+        </div>
+        <div>
+            <h3>Išleidimo Data</h3>
+            <Radzen.Blazor.RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd"
+                                            Placeholder="Pagaminimo Data"
+                                            ShowTime="false"
+                                            @bind-Value="selectedTelefonas.IsleidimoData"></Radzen.Blazor.RadzenDatePicker>
+        </div>
+        <div>
+            <h3>Kaina</h3>
+            <input type="number" step="0.01" class="form-control" spellcheck="false" @bind-value="selectedTelefonas.Kaina" />
+        </div>
+        <div>
+            <button @onclick="EditDetale" class="btn btn-info">Patvirtinti koregavimą</button>
+        </div>
+    </div>
+
+    if (showErrorMessage)
+    {
+        <div class="telefonasModal">
+            <div class="modalheader">Klaida</div>
+            <div class="modalcontent">Ne ne visi įvedimo laukai užpildyti...</div>
+            <div class="modalfooter">
+                <button @onclick="() => { showErrorMessage = false; }" class="btn btn-info">Gerai</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public int telefonasId { get; set; }
+
+    TelefonoModelisViewModel selectedTelefonas;
+
+    bool showErrorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectedTelefonas = await commonService.GetTelefonoModelisAsync(navManager.BaseUri, telefonasId);
+    }
+
+    protected bool Validate()
+    {
+        if (string.IsNullOrEmpty(selectedTelefonas.Gamintojas) ||
+            string.IsNullOrEmpty(selectedTelefonas.Pavadinimas) ||
+            selectedTelefonas.IsleidimoData == DateTime.MinValue ||
+            selectedTelefonas.Kaina == 0)
+            return false;
+
+        return true;
+    }
+
+    protected async Task EditDetale()
+    {
+        if (Validate())
+        {
+            await commonService.UpdateTelefonoModelisAsync(navManager.BaseUri, FromViewModel());
+            navManager.NavigateTo("/telefonailist");
+        }
+        else
+            showErrorMessage = true;
+    }
+
+    protected TelefonoModelis FromViewModel()
+    {
+        return new TelefonoModelis()
+        {
+            Id = selectedTelefonas.Id,
+            Gamintojas = selectedTelefonas.Gamintojas,
+            Pavadinimas = selectedTelefonas.Pavadinimas,
+            IsleidimoData = selectedTelefonas.IsleidimoData,
+            Kaina = selectedTelefonas.Kaina
+        };
+    }
+}

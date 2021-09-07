@@ -1,0 +1,75 @@
+﻿@page "/"
+
+@using PSAPI.Data.Entities
+@using PSAPI.Data.ViewModels
+@using PSAPI.Data.Services
+@using Microsoft.AspNetCore.Http.Extensions;
+@using System.Net;
+@using System.Web;
+@using System.IO;
+@using Microsoft.AspNetCore.Identity;
+
+
+@inject NavigationManager navigationManager
+@inject CommonService commonService
+@inject UserManager<IdentityUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SessionService session
+<h1>Telefonų padruotuvė</h1>
+@if (!string.IsNullOrEmpty(session["prev_message"]?.ToString()))
+{
+    <h2 style="color:red">@(session["prev_message"])</h2>
+    session["prev_message"] = "";
+}
+
+<h2>Kajus Rytas Lenčiauskas IFF-7/11</h2>
+<h2>Karolis Banys IFF-7/11</h2>
+<h2>Algirdas Vasiliauskas IFF-7/7</h2>
+<h2>Justinas Andriekus IFF-7/11</h2>
+
+@if (loaded)
+{
+    @*<p>Your username is: @userName</p>
+        @if (loggedIn)
+        {
+            <p>Your id is: @useris.Id</p>
+        }
+
+    *@
+}
+
+@if (!loggedIn)
+{
+    <h2>Jūs neprisijungę.</h2>
+    <NavLink href="Identity/Account/Login">
+        <button @onclick="AddNewDetale">Prisijunkite</button>
+    </NavLink>
+}
+
+
+@code {
+    bool loaded;
+    string userName = "i don't know";
+
+    IdentityUser useris;
+
+    bool loggedIn;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        loggedIn = authState.User.Identity.IsAuthenticated;
+        userName = authState.User.Identity.Name;
+
+        useris = await UserManager.GetUserAsync(authState.User);
+        loaded = true;
+    }
+
+    protected async Task AddNewDetale()
+    {
+        var detale = new Detale() { Id = 0, KilmesSalis = "Kinija", PagaminimoData = DateTime.Now, Pavadinimas = "Ekranas", Savikaina = 0, SerijosNumeris = "123", TelefonoModelisId = 2 };
+        await commonService.InsertDetaleAsync(navigationManager.BaseUri, detale);
+    }
+
+
+}
